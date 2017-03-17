@@ -295,6 +295,11 @@ Summary:        Ceph Manager Daemon
 License:        LGPL-2.1 and CC-BY-SA-1.0 and GPL-2.0 and BSL-1.0 and GPL-2.0-with-autoconf-exception and BSD-3-Clause and MIT
 Group:          System Environment/Base
 Requires:       ceph-base = %{epoch}:%{version}-%{release}
+Requires:       pyOpenSSL
+Requires(post): openssl
+%if 0%{?fedora} || 0%{?rhel}
+Requires:      python-flask-restful
+%endif
 
 %description mgr
 ceph-mgr enables python modules that provide services (such as the REST
@@ -1060,6 +1065,15 @@ fi
 %attr(750,ceph,ceph) %dir %{_localstatedir}/lib/ceph/mgr
 
 %post mgr
+# Generate the server key if they do not exist already
+mkdir -p /etc/ssl/{certs,private}
+test -e /etc/ssl/private/ceph-mgr-neverest.key -a \
+  -e /etc/ssl/cert/ceph-mgr-neverest.crt || \
+  openssl req -new -nodes -x509 \
+  -subj "/C=US/ST=Oregon/L=Portland/O=Red Hat/CN=ceph-mgr-neverest" \
+  -days 3650 -keyout /etc/ssl/private/ceph-mgr-neverest.key \
+  -out /etc/ssl/certs/ceph-mgr-neverest.crt -extensions v3_ca
+
 %if 0%{?suse_version}
 if [ $1 -eq 1 ] ; then
   /usr/bin/systemctl preset ceph-mgr@\*.service ceph-mgr.target >/dev/null 2>&1 || :
